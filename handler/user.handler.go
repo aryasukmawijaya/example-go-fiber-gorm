@@ -148,7 +148,26 @@ func UserHandlerUpdate(c *fiber.Ctx) error {
 func UserHandlerUpdateEmail(c *fiber.Ctx) error {
 	userId := c.Params("id")
 
+	userRequest := new(request.UserEmailUpdateRequest)
+	var userCheck entity.User
+
+	if err = c.BodyParser(userRequest); err != nil {
+		log.Println(err)
+	}
+
+	err = database.DB.Table("users").Where("email", userRequest.Email).Where("id <> ?", userId).First(&userCheck).Error
+	if err != nil {
+		if ! errors.Is(err, gorm.ErrRecordNotFound) {
+			return utils.Response(c, http.StatusNotFound, err.Error(), nil)
+		}
+	}
+
+	if (userCheck.Email != "") {
+		return utils.Response(c, http.StatusInternalServerError, "Email already exist!", nil)
+	}
+
 	var user entity.User
+
 	err = database.DB.Table("users").Where("id", userId).Find(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -156,12 +175,6 @@ func UserHandlerUpdateEmail(c *fiber.Ctx) error {
 		}
 
 		return utils.Response(c, http.StatusInternalServerError, err.Error(), nil)
-	}
-
-	userRequest := new(request.UserEmailUpdateRequest)
-
-	if err = c.BodyParser(userRequest); err != nil {
-		log.Println(err)
 	}
 
 	user.Email = userRequest.Email
